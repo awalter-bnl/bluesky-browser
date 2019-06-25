@@ -8,7 +8,7 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
     )
-
+from .suitcase import export_file
 
 class SummaryWidget(QWidget):
     open = Signal([str, list])
@@ -29,12 +29,21 @@ class SummaryWidget(QWidget):
         self.copy_uid_button = QPushButton('Copy UID to Clipboard')
         self.copy_uid_button.hide()
         self.copy_uid_button.clicked.connect(self._copy_uid)
+        self.export_button = QPushButton('export to file')
+        self.export_button.hide()
+        self.export_button.clicked.connect(self._export)
+
         self.streams = QLabel()
         self.entries = []
 
+        uid_button_layout = QVBoxLayout()
+        uid_button_layout.addWidget(self.copy_uid_button)
+        uid_button_layout.addWidget(self.export_button)
+
         uid_layout = QHBoxLayout()
         uid_layout.addWidget(self.uid_label)
-        uid_layout.addWidget(self.copy_uid_button)
+        uid_layout.addLayout(uid_button_layout)
+
         layout = QVBoxLayout()
         layout.addWidget(self.open_individually_button)
         layout.addWidget(self.open_overplotted_button)
@@ -66,6 +75,10 @@ class SummaryWidget(QWidget):
             return
         self.open.emit(item, self.entries)
 
+    def _export(self):
+        print (f'{self.entries}')  # For testing only to see that something happens
+        export_file(self.entries)  # use the function from ``bluesky-browser.suitcase``
+
     def set_entries(self, entries):
         self.entries.clear()
         self.entries.extend(entries)
@@ -73,6 +86,7 @@ class SummaryWidget(QWidget):
             self.uid_label.setText('')
             self.streams.setText('')
             self.copy_uid_button.hide()
+            self.export_button.hide()
             self.open_individually_button.hide()
             self.open_overplotted_button.hide()
             self.open_overplotted_on_button.hide()
@@ -82,6 +96,7 @@ class SummaryWidget(QWidget):
             self.uid = run.metadata['start']['uid']
             self.uid_label.setText(self.uid[:8])
             self.copy_uid_button.show()
+            self.export_button.show()
             self.open_individually_button.show()
             self.open_individually_button.setText('Open')
             self.open_overplotted_on_button.show()
@@ -100,6 +115,7 @@ class SummaryWidget(QWidget):
             self.uid_label.setText('(Multiple Selected)')
             self.streams.setText('')
             self.copy_uid_button.hide()
+            self.export_button.hide()
             self.open_individually_button.setText('Open individually')
             self.open_individually_button.show()
             self.open_overplotted_button.show()
