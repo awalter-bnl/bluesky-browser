@@ -92,9 +92,7 @@ class SummaryWidget(QWidget):
         self.open.emit(item, self.entries)
 
     def _export(self):
-        self.export_widget = export_widget(
-            self.entries, self.suitcase_list,
-            default_values=self.suitcase_default_values)
+        self.export_widget = export_widget(self.entries)
         self.export_widget.show()
 
     def set_entries(self, entries):

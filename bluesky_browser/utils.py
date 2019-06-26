@@ -162,6 +162,8 @@ ConfigurableQObject = MetaQObjectHasTraits(
     'NewBase', (Configurable, SuperQObject), {})
 ConfigurableQTabWidget = MetaQObjectHasTraits(
     'NewBase', (Configurable, QTabWidget, SuperQObject), {})
+ConfigurableQWidget = MetaQObjectHasTraits(
+    'NewBase', (Configurable, QWidget, SuperQObject), {})
 ConfigurableMoveableTabContainer = MetaQObjectHasTraits(
     'NewBase', (Configurable, MoveableTabContainer, SuperQObject), {})
 
