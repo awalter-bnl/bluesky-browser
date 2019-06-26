@@ -8,13 +8,28 @@ from qtpy.QtWidgets import (
     QVBoxLayout,
     QWidget,
     )
-from .suitcase import export_file
+from .suitcase import export_widget
+
 
 class SummaryWidget(QWidget):
     open = Signal([str, list])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+        self.initUI()
+
+    def initUI(self):
+        # The 2 definitions below should be moved into the configuration files
+        # and/or a persist to disk functionality They allow for the
+        # customization of the export to file dialog.
+        self.suitcase_list = ['json_metadata', 'csv']
+        self.suitcase_default_values = {
+            'json_metadata': {'directory': 'test_data',
+                              'file_prefix': 'test_data_{start[scan_id]}_'},
+            'csv': {'directory': 'test_data2',
+                    'file_prefix': 'test_data2_{start[scan_id]}_'}}
+
         self.uid_label = QLabel()
         self.open_individually_button = QPushButton('Open individually')
         self.open_individually_button.hide()
@@ -25,7 +40,8 @@ class SummaryWidget(QWidget):
         self.open_overplotted_on_button = QPushButton('Add to tab...')
         self.open_overplotted_on_button.hide()
         self.open_overplotted_on_button.setEnabled(False)
-        self.open_overplotted_on_button.clicked.connect(self._open_overplotted_on)
+        self.open_overplotted_on_button.clicked.connect(
+            self._open_overplotted_on)
         self.copy_uid_button = QPushButton('Copy UID to Clipboard')
         self.copy_uid_button.hide()
         self.copy_uid_button.clicked.connect(self._copy_uid)
@@ -76,8 +92,10 @@ class SummaryWidget(QWidget):
         self.open.emit(item, self.entries)
 
     def _export(self):
-        print (f'{self.entries}')  # For testing only to see that something happens
-        export_file(self.entries)  # use the function from ``bluesky-browser.suitcase``
+        self.export_widget = export_widget(
+            self.entries, self.suitcase_list,
+            default_values=self.suitcase_default_values)
+        self.export_widget.show()
 
     def set_entries(self, entries):
         self.entries.clear()
@@ -104,12 +122,14 @@ class SummaryWidget(QWidget):
             num_events = (run.metadata['stop'] or {}).get('num_events')
             if num_events:
                 self.streams.setText(
-                    'Streams:\n' + ('\n'.join(f'{k} ({v} Events)' for k, v in num_events.items())))
+                    'Streams:\n' + ('\n'.join(f'{k} ({v} Events)'
+                                    for k, v in num_events.items())))
             else:
-                # Either the RunStop document has not been emitted yet or was never
-                # emitted due to critical failure or this is an old document stream
-                # from before 'num_events' was added to the schema. Get the list of
-                # stream names another way, and omit the Event count.
+                # Either the RunStop document has not been emitted yet or was
+                # never emitted due to critical failure or this is an old
+                # document stream from before 'num_events' was added to the
+                # schema. Get the list of stream names another way, and omit
+                # the Event count.
                 self.streams.setText('Streams:\n' + ('\n'.join(list(run))))
         else:
             self.uid_label.setText('(Multiple Selected)')
