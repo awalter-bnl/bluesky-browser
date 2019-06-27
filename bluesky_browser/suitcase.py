@@ -1,14 +1,26 @@
 import traitlets
-from PyQt5.QtWidgets import (QPushButton, QVBoxLayout, QTabWidget, QWidget,
-                             QCheckBox, QFormLayout, QLineEdit)
+from PyQt5.QtWidgets import (QPushButton, QVBoxLayout, QTabWidget, QCheckBox,
+                             QFormLayout, QLineEdit, QSpinBox)
 import suitcase.csv
 import suitcase.json_metadata
 import suitcase.specfile
 import suitcase.tiff_stack
 import suitcase.tiff_series
-import sys
 
-from .utils import ConfigurableQWidget
+from .utils import (ConfigurableQWidget, QTextListEdit, QIntListEdit,
+                    QFloatListEdit, QBoolBox, QBoolNoneBox)
+
+# A global dict is defined here to map QtWidgets to their value attribute name
+# this is required to construct the slot and signal attributes when these are
+# used.
+_value_map = {QLineEdit: 'text',
+              QTextListEdit: 'text',
+              QIntListEdit: 'text',
+              QFloatListEdit: 'text',
+              QBoolBox: 'currentText',
+              QBoolNoneBox: 'currentText',
+              QSpinBox: 'value'}
+
 
 class SuitcaseWidget(ConfigurableQWidget):
     '''Widget for entering generic ``suitcase.xyz.export()`` parameters.
@@ -51,15 +63,35 @@ class SuitcaseWidget(ConfigurableQWidget):
         self.enable_checkbox = QCheckBox('enable exporter', self)
         self.main_layout.addRow('', self.enable_checkbox)
 
+        # step thorugh each require input parameter
         for parameter in self.show:
+            # collect the trait and widget_type objects.
             trait = self.traits()[parameter]
-            setattr(self, f'{parameter}_widget', trait.metadata['widget']())
-            getattr(self,
-                    f'{parameter}_widget').setText(getattr(self, parameter))
-            self.main_layout.addRow(parameter,
-                                    getattr(self, f'{parameter}_widget'))
+            widget_type = trait.metadata['widget']
+            # create, and reference, the widget.
+            setattr(self, f'{parameter}_widget', widget_type())
+            temp_widget = getattr(self, f'{parameter}_widget')
+            # write the default value from the trait to the widget.
+            slot = getattr(temp_widget,
+                           f'set{self._upper(_value_map[widget_type])}')
+            if getattr(self, parameter) is not None:  # ignore if it is "None"
+                slot(getattr(self, parameter))
+
+            # connect the output of the widget to the trait
+            signal = getattr(temp_widget, f'{_value_map[widget_type]}Changed')
+            signal.connect(lambda output: setattr(self, parameter, output))
+            # add the widget to the main layout
+            self.main_layout.addRow(parameter, temp_widget)
 
         self.setLayout(self.main_layout)
+
+    def _upper(self, string):
+        '''capitalizes the first letter of a string
+
+        NOTE: this is not the same as str.capitalize as that _also_ lowers any
+        other capitalized letters.
+        '''
+        return string[:1].upper() + string[1:]
 
 
 class json_metadataSuitcaseWidget(SuitcaseWidget):
@@ -101,12 +133,9 @@ class csvSuitcaseWidget(SuitcaseWidget):
         to be aliases for the column names.
     index : bool, default True
         Write row names (index).
-    index_label : str or sequence, or False, default None
+    index_label : str or None, default None
         Column label for index column(s) if desired. If None is given, and
-        header and index are True, then the index names are used. A sequence
-        should be given if the object uses MultiIndex. If False do not print
-        fields for index names. Use index_label=False for easier importing in
-        R.
+        header and index are True, then the index names are used
     mode : str
         Python write mode, default ‘w’.
     encoding : str, optional
@@ -139,19 +168,34 @@ class csvSuitcaseWidget(SuitcaseWidget):
     na_rep = traitlets.Unicode('')
     na_rep.tag(widget=QLineEdit)
     float_format = traitlets.Unicode('')
+    float_format.tag(widget=QLineEdit)
     columns = traitlets.List([])
+    columns.tag(widget=QIntListEdit)
     header = traitlets.List([])
+    header.tag(widget=QTextListEdit)
     index = traitlets.Bool(True)
-    index_label = traitlets.List([])
+    index.tag(widget=QBoolBox)
+    index_label = traitlets.Bool(None, allow_none=True)
+    index_label.tag(widget=QBoolNoneBox)
     mode = traitlets.Unicode('a')
+    mode.tag(widget=QLineEdit)
     encoding = traitlets.Unicode('ascii')
+    encoding.tag(widget=QLineEdit)
     compression = traitlets.Unicode('infer')
+    encoding.tag(widget=QLineEdit)
     line_terminator = traitlets.Unicode('os.lineshape')
+    line_terminator.tag(widget=QLineEdit)
     chunksize = traitlets.Int(None, allow_none=True)
+    chunksize.tag(widget=QSpinBox)
     date_format = traitlets.Unicode(None, allow_none=True)
+    date_format.tag(widget=QLineEdit)
     doublequote = traitlets.Bool(True)
+    doublequote.tag(widget=QBoolBox)
     escapechar = traitlets.Unicode(None, allow_none=True)
+    escapechar.tag(widget=QLineEdit)
     decimal = traitlets.Unicode('.')
+    decimal.tag(widget=QLineEdit)
+
     show = traitlets.List(['directory', 'file_prefix', 'seperator'])
 
     def __init__(self, *args, **kwargs):
@@ -170,6 +214,10 @@ class export_widget(ConfigurableQWidget):
     **kwargs : kwargs
         kwargs passed down to QWidget
     '''
+    # A dict that maps string 'lables' to suitcaseWidget's
+    suitcases = traitlets.Dict({'csv': csvSuitcaseWidget,
+                                'json_metadata': json_metadataSuitcaseWidget})
+    # The list of strings referencing the suitcases to be used.
     suitcase_list = traitlets.List(['csv', 'json_metadata'])
 
     def __init__(self, entries, *args, geometry=(10, 10, 400, 140), **kwargs):
@@ -190,8 +238,7 @@ class export_widget(ConfigurableQWidget):
         # add each of the required suitcase tabs
         self.suitcase_tabs = QTabWidget()
         for suitcase_type in self.suitcase_list:
-            temp_class = getattr(sys.modules[__name__],
-                                 f'{suitcase_type}SuitcaseWidget')
+            temp_class = self.suitcases[suitcase_type]
             setattr(self, f'{suitcase_type}_widget', temp_class())
             temp_widget = getattr(self, f'{suitcase_type}_widget')
             setattr(self.suitcase_tabs, f'{suitcase_type}_tab', temp_widget)
@@ -219,7 +266,7 @@ class export_widget(ConfigurableQWidget):
         for suitcase_type in self.suitcase_list:  # step through each suitcase
             temp_widget = getattr(self, f'{suitcase_type}_widget')
             if temp_widget.enable_checkbox.isChecked():
-                directory = getattr(temp_widget,'directory_widget').text()
+                directory = getattr(temp_widget, 'directory_widget').text()
                 kwargs = {'file_prefix': getattr(temp_widget,
                                                  'file_prefix_widget').text()}
                 export_file(suitcase_type, self.entries, directory, **kwargs)

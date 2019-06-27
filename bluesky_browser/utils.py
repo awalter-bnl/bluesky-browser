@@ -1,7 +1,7 @@
 import inspect
 
 from PyQt5.QtGui import QCursor, QDrag, QPixmap, QRegion
-from PyQt5.QtWidgets import QWidget, QTabWidget
+from PyQt5.QtWidgets import QWidget, QTabWidget, QLineEdit, QComboBox
 from PyQt5.QtCore import Qt, QMimeData, QObject, QPoint
 from traitlets import HasTraits, TraitType
 from traitlets.config.loader import (PyFileConfigLoader, ConfigFileNotFound,
@@ -182,3 +182,94 @@ class Callable(TraitType):
             return value
         else:
             self.error(obj, value)
+
+
+class QTextListEdit(QLineEdit):
+    '''A ``QLineEdit`` that returns a ``list`` from the ``self.text_changed``.
+
+    This adds a custom ``self.textChanged()`` method that splits the text
+    into a list of strings using ``text.split(',')``.
+    '''
+
+    def textChanged(self, *args, **kwargs):
+        text = super().textChanged(*args, **kwargs)
+        return text.split(',')
+
+
+class QIntListEdit(QLineEdit):
+    '''A ``QLineEdit`` that returns a ``list`` from the ``self.text_changed``.
+
+    This adds a custom ``self.textChanged()`` method that splits the text
+    into a list of integers using ``text.split(',')``.
+    '''
+
+    def textChanged(self, *args, **kwargs):
+        text = super().textChanged(*args, **kwargs)
+        list = text.split(',')
+        list = [int(item) for item in list]
+        return list
+
+
+class QFloatListEdit(QLineEdit):
+    '''A ``QLineEdit`` that returns a ``list`` from the ``self.text_changed``.
+
+    This adds a custom ``self.textChanged()`` method that splits the text
+    into a list of floats using ``text.split(',')``.
+    '''
+
+    def textChanged(self, *args, **kwargs):
+        text = super().textChanged(*args, **kwargs)
+        list = text.split(',')
+        list = [float(item) for item in list]
+        return list
+
+
+class QBoolBox(QComboBox):
+    '''A ``QComboBox`` that returns ``True`` or ``False``.
+
+    This adds a custom ``self.currentTextChanged`` method that converts the
+    selected string to a boolean. It also adds the items for each to the
+    options list.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.addItem('True')
+        self.addItem('False')
+
+    def currentTextChanged(self, *args, **kwargs):
+        str = super().currentTextChanged(*args, **kwargs)
+        if str == 'True':
+            val = True
+        elif str == 'False':
+            val = False
+        else:
+            val = str
+        return val
+
+
+class QBoolNoneBox(QComboBox):
+    '''A ``QComboBox`` that returns ``True``, ``False`` or ``None``.
+
+    This adds a custom ``self.currentTextChanged`` method that converts the
+    selected string to a boolean or None. It also adds the items for each to
+    the options list.
+    '''
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.addItem('True')
+        self.addItem('False')
+        self.addItem('None')
+
+    def currentTextChanged(self, *args, **kwargs):
+        str = super().currentTextChanged(*args, **kwargs)
+        if str == 'True':
+            val = True
+        elif str == 'False':
+            val = False
+        elif str == 'None':
+            val = None
+        else:
+            val = str
+        return val
