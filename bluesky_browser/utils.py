@@ -2,7 +2,7 @@ import inspect
 
 from PyQt5.QtGui import QCursor, QDrag, QPixmap, QRegion
 from PyQt5.QtWidgets import QWidget, QTabWidget, QLineEdit, QComboBox
-from PyQt5.QtCore import Qt, QMimeData, QObject, QPoint
+from PyQt5.QtCore import Qt, QMimeData, QObject, QPoint, pyqtSlot, pyqtSignal
 from traitlets import HasTraits, TraitType
 from traitlets.config.loader import (PyFileConfigLoader, ConfigFileNotFound,
                                      Config)
@@ -184,52 +184,62 @@ class Callable(TraitType):
             self.error(obj, value)
 
 
-class QTextListEdit(QLineEdit):
-    '''A ``QLineEdit`` that returns a ``list`` from the ``self.text_changed``.
+class QStrListEdit(QLineEdit):
+    '''A ``QLineEdit`` that returns a ``list`` from the ``self.listChanged``.
 
-    This adds a custom ``self.textChanged()`` method that splits the text
-    into a list of strings using ``text.split(',')``.
+    This adds a ``self.listChanged()`` ``pyqt5Signal`` and a ``self.setList``
+    ``pyqt5Slot``. This allows for lists of strings to be handled as input
+    parameters.
     '''
 
-    def textChanged(self, *args, **kwargs):
-        text = super().textChanged(*args, **kwargs)
-        return text.split(',')
+    listChanged = pyqtSignal(list)
+
+    @pyqtSlot()
+    def setList(self, value):
+        super().setText(self._list2str(value))
+        self.listChanged.emit(value)
+
+    @pyqtSlot()
+    def setText(self, str_val):
+        self.setList(self._str2list(str_val))
+
+    def _str2list(self, str_val):
+        return str_val.split(',')
+
+    def _list2str(self, val):
+        return str(val)[1:-1].replace("'", "")
 
 
-class QIntListEdit(QLineEdit):
-    '''A ``QLineEdit`` that returns a ``list`` from the ``self.text_changed``.
+class QIntListEdit(QStrListEdit):
+    '''A ``QLineEdit`` that returns a ``list`` from the ``self.listChanged``.
 
-    This adds a custom ``self.textChanged()`` method that splits the text
-    into a list of integers using ``text.split(',')``.
+    This adds a ``self.listChanged()`` ``pyqt5Signal`` and a ``self.setList``
+    ``pyqt5Slot``. This allows for lists of integers to be handled as input
+    parameters.
     '''
 
-    def textChanged(self, *args, **kwargs):
-        text = super().textChanged(*args, **kwargs)
-        list = text.split(',')
-        list = [int(item) for item in list]
-        return list
+    def _str2list(self, str_val):
+        return [int(val) for val in str_val.split(',')]
 
 
-class QFloatListEdit(QLineEdit):
-    '''A ``QLineEdit`` that returns a ``list`` from the ``self.text_changed``.
+class QFloatListEdit(QStrListEdit):
+    '''A ``QLineEdit`` that returns a ``list`` from the ``self.listChanged``.
 
-    This adds a custom ``self.textChanged()`` method that splits the text
-    into a list of floats using ``text.split(',')``.
+    This adds a ``self.listChanged()`` ``pyqt5Signal`` and a ``self.setList``
+    ``pyqt5Slot``. This allows for lists of floatss to be handled as input
+    parameters.
     '''
 
-    def textChanged(self, *args, **kwargs):
-        text = super().textChanged(*args, **kwargs)
-        list = text.split(',')
-        list = [float(item) for item in list]
-        return list
+    def _str2list(self, str_val):
+        return [float(val) for val in str_val.split(',')]
 
 
 class QBoolBox(QComboBox):
     '''A ``QComboBox`` that returns ``True`` or ``False``.
 
-    This adds a custom ``self.currentTextChanged`` method that converts the
-    selected string to a boolean. It also adds the items for each to the
-    options list.
+    This adds a custom ``self.boolChanged`` ``pyqt5Signal`` that indicates if a
+    the boolean has been updated using a new ``self.setBool`` ``pyqt5Slot``. It
+    also adds the items for each to the options list.
     '''
 
     def __init__(self, *args, **kwargs):
@@ -237,39 +247,59 @@ class QBoolBox(QComboBox):
         self.addItem('True')
         self.addItem('False')
 
-    def currentTextChanged(self, *args, **kwargs):
-        str = super().currentTextChanged(*args, **kwargs)
-        if str == 'True':
-            val = True
-        elif str == 'False':
-            val = False
-        else:
-            val = str
-        return val
+    boolChanged = pyqtSignal(bool)
+
+    @pyqtSlot()
+    def setBool(self, value):
+        super().setCurrentText(self._bool2str(value))
+        self.boolChanged.emit(value)
+
+    @pyqtSlot()
+    def setCurrentText(self, str_val):
+        self.setBool(self._str2bool(str_val))
+
+    def _bool2str(self, value):
+        if value is True:
+            str_val = 'True'
+        elif value is False:
+            str_val = 'False'
+        return str_val
+
+    def _str2bool(self, str_val):
+        if str_val == 'True':
+            value = True
+        elif str_val == 'False':
+            value = False
+        return value
 
 
-class QBoolNoneBox(QComboBox):
+class QBoolNoneBox(QBoolBox):
     '''A ``QComboBox`` that returns ``True``, ``False`` or ``None``.
 
-    This adds a custom ``self.currentTextChanged`` method that converts the
-    selected string to a boolean or None. It also adds the items for each to
-    the options list.
+    This adds a custom ``self.boolChanged`` ``pyqt5Signal`` that indicates if a
+    the boolean has been updated using a new ``self.setBool`` ``pyqt5Slot``. It
+    also adds the items for each to the options list.
     '''
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.addItem('True')
-        self.addItem('False')
         self.addItem('None')
 
-    def currentTextChanged(self, *args, **kwargs):
-        str = super().currentTextChanged(*args, **kwargs)
-        if str == 'True':
-            val = True
-        elif str == 'False':
-            val = False
-        elif str == 'None':
-            val = None
-        else:
-            val = str
-        return val
+    def _bool2str(self, value):
+
+        if value is None:
+            str_val = 'None'
+        elif value is True:
+            str_val = 'True'
+        elif value is False:
+            str_val = 'False'
+        return str_val
+
+    def _str2bool(self, str_val):
+        if str_val == 'True':
+            value = True
+        elif str_val == 'False':
+            value = False
+        elif str_val == 'None':
+            value = None
+        return value

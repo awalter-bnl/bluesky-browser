@@ -7,19 +7,8 @@ import suitcase.specfile
 import suitcase.tiff_stack
 import suitcase.tiff_series
 
-from .utils import (ConfigurableQWidget, QTextListEdit, QIntListEdit,
-                    QFloatListEdit, QBoolBox, QBoolNoneBox)
-
-# A global dict is defined here to map QtWidgets to their value attribute name
-# this is required to construct the slot and signal attributes when these are
-# used.
-_value_map = {QLineEdit: 'text',
-              QTextListEdit: 'text',
-              QIntListEdit: 'text',
-              QFloatListEdit: 'text',
-              QBoolBox: 'currentText',
-              QBoolNoneBox: 'currentText',
-              QSpinBox: 'value'}
+from .utils import (ConfigurableQWidget, QStrListEdit, QIntListEdit, QBoolBox,
+                    QBoolNoneBox)
 
 
 class SuitcaseWidget(ConfigurableQWidget):
@@ -45,17 +34,16 @@ class SuitcaseWidget(ConfigurableQWidget):
     '''
 
     file_prefix = traitlets.Unicode('test_data_{start[scan_id]}')
-    file_prefix.tag(widget=QLineEdit)
     directory = traitlets.Unicode('test_data')
-    directory.tag(widget=QLineEdit)
-    show = traitlets.List(['file_prefix', 'directory'])
+    parameters = traitlets.List(['directory', 'file_prefix'])
 
     def __init__(self, *args, geometry=(10, 10, 400, 140), **kwargs):
         super().__init__(*args, **kwargs)
         self.geometry = geometry
-        self.initUI()
+        self.initGUI()
+        self.show_parameters()
 
-    def initUI(self):
+    def initGUI(self):
         self.setGeometry(*self.geometry)
 
         self.main_layout = QFormLayout()
@@ -63,35 +51,48 @@ class SuitcaseWidget(ConfigurableQWidget):
         self.enable_checkbox = QCheckBox('enable exporter', self)
         self.main_layout.addRow('', self.enable_checkbox)
 
-        # step thorugh each require input parameter
-        for parameter in self.show:
+        # 'directory' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'directory'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'file_prefix' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'file_prefix'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+    def show_parameters(self):
+        '''Walks through ``self.parameters`` showing the widgets.'''
+        for parameter in self.parameters:
             # collect the trait and widget_type objects.
-            trait = self.traits()[parameter]
-            widget_type = trait.metadata['widget']
-            # create, and reference, the widget.
-            setattr(self, f'{parameter}_widget', widget_type())
-            temp_widget = getattr(self, f'{parameter}_widget')
-            # write the default value from the trait to the widget.
-            slot = getattr(temp_widget,
-                           f'set{self._upper(_value_map[widget_type])}')
-            if getattr(self, parameter) is not None:  # ignore if it is "None"
-                slot(getattr(self, parameter))
-
-            # connect the output of the widget to the trait
-            signal = getattr(temp_widget, f'{_value_map[widget_type]}Changed')
-            signal.connect(lambda output: setattr(self, parameter, output))
-            # add the widget to the main layout
-            self.main_layout.addRow(parameter, temp_widget)
-
+            trait_widget = getattr(self, f'{parameter}_widget')
+            self.main_layout.addRow(parameter, trait_widget)
+        # set ``self.main_layout`` as the layout
         self.setLayout(self.main_layout)
-
-    def _upper(self, string):
-        '''capitalizes the first letter of a string
-
-        NOTE: this is not the same as str.capitalize as that _also_ lowers any
-        other capitalized letters.
-        '''
-        return string[:1].upper() + string[1:]
 
 
 class json_metadataSuitcaseWidget(SuitcaseWidget):
@@ -163,43 +164,303 @@ class csvSuitcaseWidget(SuitcaseWidget):
         Character recognized as decimal separator. E.g. use ‘,’ for European
         data.
     '''
-    seperator = traitlets.Unicode(',')
-    seperator.tag(widget=QLineEdit)
-    na_rep = traitlets.Unicode('')
-    na_rep.tag(widget=QLineEdit)
-    float_format = traitlets.Unicode('')
-    float_format.tag(widget=QLineEdit)
-    columns = traitlets.List([])
-    columns.tag(widget=QIntListEdit)
-    header = traitlets.List([])
-    header.tag(widget=QTextListEdit)
-    index = traitlets.Bool(True)
-    index.tag(widget=QBoolBox)
-    index_label = traitlets.Bool(None, allow_none=True)
-    index_label.tag(widget=QBoolNoneBox)
-    mode = traitlets.Unicode('a')
-    mode.tag(widget=QLineEdit)
-    encoding = traitlets.Unicode('ascii')
-    encoding.tag(widget=QLineEdit)
-    compression = traitlets.Unicode('infer')
-    encoding.tag(widget=QLineEdit)
-    line_terminator = traitlets.Unicode('os.lineshape')
-    line_terminator.tag(widget=QLineEdit)
-    chunksize = traitlets.Int(None, allow_none=True)
-    chunksize.tag(widget=QSpinBox)
-    date_format = traitlets.Unicode(None, allow_none=True)
-    date_format.tag(widget=QLineEdit)
-    doublequote = traitlets.Bool(True)
-    doublequote.tag(widget=QBoolBox)
-    escapechar = traitlets.Unicode(None, allow_none=True)
-    escapechar.tag(widget=QLineEdit)
-    decimal = traitlets.Unicode('.')
-    decimal.tag(widget=QLineEdit)
 
-    show = traitlets.List(['directory', 'file_prefix', 'seperator'])
+    seperator = traitlets.Unicode(',')
+    na_rep = traitlets.Unicode('')
+    float_format = traitlets.Unicode('')
+    columns = traitlets.List([])
+    header = traitlets.List([])
+    index = traitlets.Bool(True)
+    index_label = traitlets.Bool(None, allow_none=True)
+    mode = traitlets.Unicode('a')
+    encoding = traitlets.Unicode('ascii')
+    compression = traitlets.Unicode('infer')
+    line_terminator = traitlets.Unicode('os.lineshape')
+    chunksize = traitlets.Int(None, allow_none=True)
+    date_format = traitlets.Unicode(None, allow_none=True)
+    doublequote = traitlets.Bool(True)
+    escapechar = traitlets.Unicode(None, allow_none=True)
+    decimal = traitlets.Unicode('.')
+
+    parameters = traitlets.List(['directory', 'file_prefix', 'seperator'])
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+
+    def initGUI(self):
+        super().initGUI()  # ensures directory and file_prefix are at the top.
+
+        # 'seperator' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'seperator'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'na_rep' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'na_rep'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'float_format' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'float_format'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'columns' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'columns'  # The name of the trait
+        widget_type = QIntListEdit  # The QT widget for this trait
+        slot_name = 'setList'  # The slot name for this trait
+        signal_name = 'listChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'header' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'header'  # The name of the trait
+        widget_type = QStrListEdit  # The QT widget for this trait
+        slot_name = 'setList'  # The slot name for this trait
+        signal_name = 'listChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'index' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'index'  # The name of the trait
+        widget_type = QBoolBox  # The QT widget for this trait
+        slot_name = 'setBool'  # The slot name for this trait
+        signal_name = 'boolChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'index_label' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'index_label'  # The name of the trait
+        widget_type = QBoolNoneBox  # The QT widget for this trait
+        slot_name = 'setBool'  # The slot name for this trait
+        signal_name = 'boolChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'mode' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'mode'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'encoding' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'encoding'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'compression' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'compression'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'line_terminator' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'line_terminator'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'chunksize' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'chunksize'  # The name of the trait
+        widget_type = QSpinBox  # The QT widget for this trait
+        slot_name = 'setValue'  # The slot name for this trait
+        signal_name = 'valueChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'date_format' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'date_format'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'doublequote' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'doublequote'  # The name of the trait
+        widget_type = QBoolBox  # The QT widget for this trait
+        slot_name = 'setBool'  # The slot name for this trait
+        signal_name = 'boolChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'escapechar' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'escapechar'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
+
+        # 'decimal' trait
+        # NOTE: These four values should be updated for different traits.
+        trait_name = 'decimal'  # The name of the trait
+        widget_type = QLineEdit  # The QT widget for this trait
+        slot_name = 'setText'  # The slot name for this trait
+        signal_name = 'textChanged'  # The signal name for this trait
+        # reference the trait and create the trait widget
+        trait = getattr(self, trait_name)
+        setattr(self, f'{trait_name}_widget', widget_type())
+        trait_widget = getattr(self, f'{trait_name}_widget')
+        # write the value of the trait to the widget
+        if trait is not None:  # ignore if it is "None"
+            getattr(trait_widget, slot_name)(trait)
+        # Connect the output of the widget to the file_prefix trait.
+        getattr(trait_widget, signal_name).connect(
+            lambda output: setattr(self, trait_name, output))
 
 
 class export_widget(ConfigurableQWidget):
@@ -214,11 +475,11 @@ class export_widget(ConfigurableQWidget):
     **kwargs : kwargs
         kwargs passed down to QWidget
     '''
-    # A dict that maps string 'lables' to suitcaseWidget's
-    suitcases = traitlets.Dict({'csv': csvSuitcaseWidget,
-                                'json_metadata': json_metadataSuitcaseWidget})
-    # The list of strings referencing the suitcases to be used.
-    suitcase_list = traitlets.List(['csv', 'json_metadata'])
+    # A dict mapping suitcases to labels'
+    suitcase_dict = {'json_metadata': json_metadataSuitcaseWidget,
+                     'csv': csvSuitcaseWidget}
+    # A list of suitcase 'labels' to show
+    suitcases = traitlets.List(['json_metadata', 'csv'])
 
     def __init__(self, entries, *args, geometry=(10, 10, 400, 140), **kwargs):
         super().__init__(*args, **kwargs)
@@ -237,16 +498,15 @@ class export_widget(ConfigurableQWidget):
 
         # add each of the required suitcase tabs
         self.suitcase_tabs = QTabWidget()
-        for suitcase_type in self.suitcase_list:
-            temp_class = self.suitcases[suitcase_type]
-            setattr(self, f'{suitcase_type}_widget', temp_class())
-            temp_widget = getattr(self, f'{suitcase_type}_widget')
-            setattr(self.suitcase_tabs, f'{suitcase_type}_tab', temp_widget)
-            temp_tab = getattr(self.suitcase_tabs, f'{suitcase_type}_tab')
+        for suitcase_label in self.suitcases:
+            temp_class = self.suitcase_dict[suitcase_label]
+            setattr(self, f'{suitcase_label}_widget', temp_class())
+            temp_widget = getattr(self, f'{suitcase_label}_widget')
+            setattr(self.suitcase_tabs, f'{suitcase_label}_tab', temp_widget)
+            temp_tab = getattr(self.suitcase_tabs, f'{suitcase_label}_tab')
             temp_tab.layout = QVBoxLayout()
             temp_tab.layout.addWidget(temp_widget)
-            temp_tab.setLayout(temp_tab.layout)
-            self.suitcase_tabs.addTab(temp_tab, suitcase_type)
+            self.suitcase_tabs.addTab(temp_tab, suitcase_label)
         # add the tabs to the layout
         self.layout.addWidget(self.suitcase_tabs)
         # add an export button
@@ -263,13 +523,13 @@ class export_widget(ConfigurableQWidget):
 
     def _export_clicked(self):
         '''The function run when the export button is clicked.'''
-        for suitcase_type in self.suitcase_list:  # step through each suitcase
-            temp_widget = getattr(self, f'{suitcase_type}_widget')
+        for suitcase_label in self.suitcases:  # step through each suitcase
+            temp_widget = getattr(self, f'{suitcase_label}_widget')
             if temp_widget.enable_checkbox.isChecked():
                 directory = getattr(temp_widget, 'directory_widget').text()
                 kwargs = {'file_prefix': getattr(temp_widget,
                                                  'file_prefix_widget').text()}
-                export_file(suitcase_type, self.entries, directory, **kwargs)
+                export_file(suitcase_label, self.entries, directory, **kwargs)
         self.close()
 
     def _cancel_clicked(self):
