@@ -39,7 +39,6 @@ class SuitcaseWidget(ConfigurableQWidget):
     # Tuple giving the (left, top, width, height) size of the required window
     geometry = traitlets.Tuple((10, 10, 600, 200))
 
-
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.initGUI()
@@ -67,7 +66,8 @@ class SuitcaseWidget(ConfigurableQWidget):
 
         # add any parameters from self.parameters, if they are unique.
         for parameter in self.parameters:
-            if parameter not in parameters: parameters.append(parameter)
+            if parameter not in parameters:
+                parameters.append(parameter)
 
         # step through each parameter and add the widget to the layout.
         for parameter in parameters:
@@ -249,7 +249,7 @@ class csvSuitcaseWidget(SuitcaseWidget):
         self._create_trait_widget('decimal', QLineEdit, 'setText',
                                   'textChanged')
 
-    def show_parameters(self, parameters = []):
+    def show_parameters(self, parameters=[]):
         '''Walks through ``parameters`` then ``super().parameters`` showing the
         widgets.
 
@@ -261,7 +261,8 @@ class csvSuitcaseWidget(SuitcaseWidget):
         try:
             # add any parameters from super.parameters, if they are unique.
             for parameter in super().parameters:
-                if parameter not in parameters: parameters.append(parameter)
+                if parameter not in parameters:
+                    parameters.append(parameter)
         except AttributeError:
             ...
 
