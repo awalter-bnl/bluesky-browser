@@ -61,16 +61,21 @@ class SuitcaseWidget(ConfigurableQWidget):
                                   'textChanged')
 
     def show_parameters(self, parameters=[]):
-        '''Walks through ``parameters`` then ``self.parameters`` showing the
+        '''Walks through ``self.parameters`` then ``parameters`` showing the
            widgets.'''
 
         # add any parameters from self.parameters, if they are unique.
+        combined_parameters = []
         for parameter in self.parameters:
-            if parameter not in parameters:
-                parameters.append(parameter)
+            if parameter not in combined_parameters:
+                combined_parameters.append(parameter)
+        # add any parameters from the kwarg parameters, if they are unique.
+        for parameter in parameters:
+            if parameter not in combined_parameters:
+                combined_parameters.append(parameter)
 
         # step through each parameter and add the widget to the layout.
-        for parameter in parameters:
+        for parameter in combined_parameters:
             # collect the trait and widget_type objects.
             trait_widget = getattr(self, f'{parameter}_widget')
             self.main_layout.addRow(parameter, trait_widget)
@@ -250,23 +255,26 @@ class csvSuitcaseWidget(SuitcaseWidget):
                                   'textChanged')
 
     def show_parameters(self, parameters=[]):
-        '''Walks through ``parameters`` then ``super().parameters`` showing the
-        widgets.
+        '''Walks through ``super().parameters``, ``self.parameters`` then
+        ``parameters`` showing the widgets in each.
 
-        NOTE: This modified version is required for all child classes. The call
-        to ``super().parameters`` from inside ``super().show_parameters()``
-        does not find any parameters.
+        NOTE: This modified version is required for all child classes. It
+        ensures that the self.parameters from the parent class supercedes all
+        others so that multiple types of suitcaseWidgets have a consistent
+        order and visibility for common traits.
         '''
-        # add any parent parameters first if they exist.
-        try:
-            # add any parameters from super.parameters, if they are unique.
-            for parameter in super().parameters:
-                if parameter not in parameters:
-                    parameters.append(parameter)
-        except AttributeError:
-            ...
 
-        super().show_parameters(parameters=parameters)
+        # add any parameters from self.parameters, if they are unique.
+        combined_parameters = []
+        for parameter in self.parameters:
+            if parameter not in combined_parameters:
+                combined_parameters.append(parameter)
+        # add any parameters from the kwarg parameters, if they are unique.
+        for parameter in parameters:
+            if parameter not in combined_parameters:
+                combined_parameters.append(parameter)
+        # make the call to the parent method
+        super().show_parameters(parameters=combined_parameters)
 
 
 class export_widget(ConfigurableQWidget):
