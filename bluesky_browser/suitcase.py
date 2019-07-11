@@ -1,6 +1,6 @@
 import traitlets
 from PyQt5.QtWidgets import (QPushButton, QVBoxLayout, QTabWidget, QCheckBox,
-                             QFormLayout, QLineEdit, QSpinBox)
+                             QFormLayout, QLineEdit, QSpinBox, QMessageBox)
 import suitcase.csv
 import suitcase.json_metadata
 import suitcase.specfile
@@ -337,6 +337,9 @@ class export_widget(ConfigurableQWidget):
 
     def _export_clicked(self):
         '''The function run when the export button is clicked.'''
+
+        has_exported = False  # indicates if an export has occured.
+
         for suitcase_label in self.suitcases:  # step through each suitcase
             temp_widget = getattr(self, f'{suitcase_label}_widget')
             if temp_widget.enable_checkbox.isChecked():
@@ -344,6 +347,20 @@ class export_widget(ConfigurableQWidget):
                 kwargs = {'file_prefix': getattr(temp_widget,
                                                  'file_prefix_widget').text()}
                 export_file(suitcase_label, self.entries, directory, **kwargs)
+                has_exported = True
+
+        # In case no suitcase types are marked for export warn the user
+        if not has_exported:
+            warning = QMessageBox()
+            warning.setIcon(QMessageBox.Information)
+            warning.setWindowTitle('No Export Warning')
+            warning.setText('None of the suitcase types where exported')
+            warning.setDetailedText('This warning generally occurs because the'
+                                    ' "enable exporter" checkbox was not '
+                                    'checked for any of the suitcase types.')
+            warning.setStandardButtons(QMessageBox.Ok)
+            warning.exec_()
+
         self.close()
 
     def _cancel_clicked(self):
